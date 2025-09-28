@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pokédex Aleatória</title>
+    <title>Pokédex com Stats</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,7 +15,7 @@
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            background-color: #f0f2f5;
+            /* Cor de fundo aplicada diretamente na tag <body> */
         }
         .pokemon-card {
             transition: all 0.3s ease-in-out;
@@ -28,29 +28,39 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900">
+<body style="background-color: #D3D3D3;">
 
-    <div class="container mx-auto p-4 max-w-md">
+    <div class="container mx-auto p-4 max-w-lg">
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden text-center pokemon-card">
             
             <div class="p-6">
-                <h1 class="text-3xl font-bold text-gray-800 dark:text-white mb-2">Pokédex Aleatória</h1>
-                <p class="text-gray-600 dark:text-gray-300 mb-6">Encontre um novo Pokémon!</p>
+                <h1 class="text-3xl font-bold text-gray-800 dark:text-white mb-2">Pokédex</h1>
+                <p class="text-gray-600 dark:text-gray-300 mb-6">Encontre o seu Pokémon!</p>
             </div>
 
-            <div id="pokemon-display" class="p-6 bg-gray-50 dark:bg-gray-700 min-h-[350px] flex flex-col items-center justify-center">
-                <div id="pokemon-image-container" class="w-48 h-48 mb-4 flex items-center justify-center">
-                     <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div id="pokemon-display" class="p-6 bg-gray-50 dark:bg-gray-700 min-h-[350px] flex flex-col sm:flex-row items-center justify-center gap-4">
+                <div class="flex flex-col items-center w-full sm:w-1/2">
+                    <div id="pokemon-image-container" class="w-40 h-40 sm:w-48 sm:h-48 mb-4 flex items-center justify-center">
+                         <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <h2 id="pokemon-name" class="text-2xl font-semibold capitalize text-gray-700 dark:text-white h-12">Carregando...</h2>
+                    <div id="pokemon-types" class="flex justify-center gap-2 mt-2 h-7"></div>
                 </div>
-                <h2 id="pokemon-name" class="text-2xl font-semibold capitalize text-gray-700 dark:text-white h-9">Carregando...</h2>
-                <div id="pokemon-types" class="flex justify-center gap-2 mt-2 h-7"></div>
+                <div id="pokemon-stats" class="w-full sm:w-1/2 text-left">
+                </div>
             </div>
 
             <div class="p-6">
-                <button id="fetch-pokemon-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
-                    Pegar outro Pokémon!
+                <div class="flex flex-col sm:flex-row gap-2 mb-4">
+                    <input type="text" id="pokemon-search-input" placeholder="Nome ou número" class="flex-grow w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                    <button id="search-btn" class="w-full sm:w-auto bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                        Buscar
+                    </button>
+                </div>
+                <button id="fetch-random-btn" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300">
+                    Pegar um Aleatório!
                 </button>
-                 <div id="error-message" class="text-red-500 mt-4 h-5"></div>
+                   <div id="error-message" class="text-red-500 mt-4 h-5"></div>
             </div>
 
         </div>
@@ -60,67 +70,170 @@
         const pokemonImageContainer = document.getElementById('pokemon-image-container');
         const pokemonNameElement = document.getElementById('pokemon-name');
         const pokemonTypesElement = document.getElementById('pokemon-types');
-        const fetchButton = document.getElementById('fetch-pokemon-btn');
+        const pokemonStatsElement = document.getElementById('pokemon-stats');
+        const randomButton = document.getElementById('fetch-random-btn');
         const errorMessageElement = document.getElementById('error-message');
+        const searchInput = document.getElementById('pokemon-search-input');
+        const searchButton = document.getElementById('search-btn');
 
         const API_URL = 'https://pokeapi.co/api/v2/pokemon/';
+        const TYPE_API_URL = 'https://pokeapi.co/api/v2/type/';
 
-        const typeColors = {
-            normal: 'bg-gray-400', fire: 'bg-red-500', water: 'bg-blue-500',
-            grass: 'bg-green-500', electric: 'bg-yellow-400', ice: 'bg-cyan-300',
-            fighting: 'bg-orange-700', poison: 'bg-purple-600', ground: 'bg-yellow-600',
-            flying: 'bg-indigo-400', psychic: 'bg-pink-500', bug: 'bg-lime-500',
-            rock: 'bg-yellow-700', ghost: 'bg-indigo-800', dragon: 'bg-purple-800',
-            dark: 'bg-gray-800', steel: 'bg-gray-500', fairy: 'bg-pink-300'
+        // Mapeamento de Cores em tons de Roxo e complementares
+        const typeColors = { 
+            normal: 'bg-gray-400', 
+            fire: 'bg-purple-700', 
+            water: 'bg-indigo-600', 
+            grass: 'bg-fuchsia-600', 
+            electric: 'bg-violet-400', 
+            ice: 'bg-purple-300', 
+            fighting: 'bg-purple-900', 
+            poison: 'bg-purple-800', 
+            ground: 'bg-indigo-700', 
+            flying: 'bg-violet-500', 
+            psychic: 'bg-fuchsia-500', 
+            bug: 'bg-indigo-500', 
+            rock: 'bg-purple-600', 
+            ghost: 'bg-indigo-900', 
+            dragon: 'bg-violet-700', 
+            dark: 'bg-gray-700', 
+            steel: 'bg-gray-500', 
+            fairy: 'bg-pink-400' 
         };
-
-        async function fetchRandomPokemon() {
-            fetchButton.disabled = true;
-            fetchButton.textContent = 'Buscando...';
+        const traducoesTipos = { normal: 'Normal', fire: 'Fogo', water: 'Água', grass: 'Grama', electric: 'Elétrico', ice: 'Gelo', fighting: 'Lutador', poison: 'Veneno', ground: 'Terra', flying: 'Voador', psychic: 'Psíquico', bug: 'Inseto', rock: 'Pedra', ghost: 'Fantasma', dragon: 'Dragão', dark: 'Sombrio', steel: 'Aço', fairy: 'Fada' };
+        const traducoesStats = { hp: 'HP', attack: 'Ataque', defense: 'Defesa', 'special-attack': 'At. Especial', 'special-defense': 'Def. Especial', speed: 'Velocidade' };
+        
+        function setCarregando(isSearching = false) {
+            if (isSearching) { searchButton.disabled = true; searchButton.textContent = '...'; }
+            randomButton.disabled = true;
+            errorMessageElement.textContent = '';
             pokemonNameElement.textContent = 'Carregando...';
             pokemonTypesElement.innerHTML = '';
-            errorMessageElement.textContent = '';
-            pokemonImageContainer.innerHTML = `<svg class="w-16 h-16 text-gray-400 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>`;
+            pokemonStatsElement.innerHTML = '';
+            // Spinner de carregamento
+            pokemonImageContainer.innerHTML = `<svg class="w-16 h-16 text-gray-400 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+        }
 
+        function reativarBotoes() {
+            randomButton.disabled = false;
+            searchButton.disabled = false;
+            searchButton.textContent = 'Buscar';
+        }
+
+        function mostrarPokemon(data) {
+            // Usa " - " como separador para melhor visualização (ID - Nome)
+            pokemonNameElement.textContent = `${data.id} - ${data.name}`; 
+            
+            const imageUrl = data.sprites.other['official-artwork'].front_default;
+            pokemonImageContainer.innerHTML = `<img src="${imageUrl}" alt="${data.name}" class="w-full h-full object-contain pokemon-image">`;
+            
+            // Exibe os Tipos
+            pokemonTypesElement.innerHTML = '';
+            data.types.forEach(typeInfo => {
+                const typeName = typeInfo.type.name;
+                const nomeTraduzido = traducoesTipos[typeName] || typeName;
+                const color = typeColors[typeName] || 'bg-gray-400';
+                // Adiciona a funcionalidade de busca por tipo no clique
+                const typeBadge = `<button onclick="fetchPokemonPorTipo('${typeName}')" class="px-3 py-1 text-sm font-semibold text-white ${color} rounded-full capitalize transition-transform hover:scale-110 focus:outline-none">${nomeTraduzido}</button>`;
+                pokemonTypesElement.innerHTML += typeBadge;
+            });
+            
+            // Exibe os Stats
+            pokemonStatsElement.innerHTML = '';
+            data.stats.forEach(statInfo => {
+                const statName = statInfo.stat.name;
+                const statValue = statInfo.base_stat;
+                const nomeTraduzido = traducoesStats[statName] || statName;
+                const statWidth = Math.min((statValue / 200) * 100, 100);
+
+                const statElement = `
+                    <div class="mb-2">
+                        <div class="flex justify-between text-sm font-semibold text-gray-600 dark:text-gray-300">
+                            <span>${nomeTraduzido}</span>
+                            <span>${statValue}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+                            <div class="bg-[#b5b531] h-2.5 rounded-full" style="width: ${statWidth}%"></div>
+                        </div>
+                    </div>
+                `;
+                pokemonStatsElement.innerHTML += statElement;
+            });
+        }
+
+        async function fetchPokemon(query) {
+            const isSearching = typeof query === 'string' && isNaN(query);
+            setCarregando(isSearching);
             try {
-                const randomId = Math.floor(Math.random() * 1025) + 1;
-                const response = await fetch(API_URL + randomId);
-
+                const response = await fetch(API_URL + query);
                 if (!response.ok) {
-                    throw new Error('Não foi possível encontrar o Pokémon.');
+                    throw new Error('Pokémon não encontrado.');
                 }
-
                 const data = await response.json();
-
-                pokemonNameElement.textContent = data.name;
-                
-                const imageUrl = data.sprites.other['official-artwork'].front_default;
-                pokemonImageContainer.innerHTML = `<img src="${imageUrl}" alt="${data.name}" class="w-full h-full object-contain pokemon-image">`;
-
-                data.types.forEach(typeInfo => {
-                    const typeName = typeInfo.type.name;
-                    const color = typeColors[typeName] || 'bg-gray-400';
-                    const typeBadge = `<span class="px-3 py-1 text-sm font-semibold text-white ${color} rounded-full capitalize">${typeName}</span>`;
-                    pokemonTypesElement.innerHTML += typeBadge;
-                });
-
+                mostrarPokemon(data);
             } catch (error) {
-                console.error('Oxe, deu erro:', error);
-                errorMessageElement.textContent = 'Vixe, deu um erro. Tente de novo.';
-                pokemonNameElement.textContent = 'Tente novamente';
-                pokemonImageContainer.innerHTML = `<svg class="w-12 h-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
-
+                console.error("Erro ao buscar Pokémon:", error);
+                errorMessageElement.textContent = `Vixe, num achei esse Pokémon "${query}" não.`;
+                pokemonNameElement.textContent = 'Não encontrado';
+                pokemonImageContainer.innerHTML = `<svg class="w-16 h-16 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 01-5.656-5.656l3.536-3.536a4 4 0 015.656 5.656l-3.536 3.536zM14.828 8.828a4 4 0 015.656 5.656l-3.536 3.536a4 4 0 01-5.656-5.656l3.536-3.536z"></path></svg>`;
+                pokemonStatsElement.innerHTML = '';
+                pokemonTypesElement.innerHTML = '';
             } finally {
-                fetchButton.disabled = false;
-                fetchButton.textContent = 'Pegar outro Pokémon!';
+                reativarBotoes();
+            }
+        }
+        
+        async function fetchPokemonPorTipo(typeName) {
+            setCarregando();
+            try {
+                const response = await fetch(TYPE_API_URL + typeName);
+                if (!response.ok) throw new Error('Tipo não encontrado');
+                const data = await response.json();
+                const pokemonsDoTipo = data.pokemon;
+                if (pokemonsDoTipo.length === 0) throw new Error('Nenhum Pokémon encontrado para este tipo.');
+                const randomIndex = Math.floor(Math.random() * pokemonsDoTipo.length);
+                const pokemonEscolhido = pokemonsDoTipo[randomIndex].pokemon;
+                await fetchPokemon(pokemonEscolhido.name);
+            } catch (error) {
+                console.error(`Erro ao buscar por tipo ${typeName}:`, error);
+                errorMessageElement.textContent = 'Vixe, deu galha ao buscar por tipo.';
+                reativarBotoes();
             }
         }
 
-        fetchButton.addEventListener('click', fetchRandomPokemon);
-        window.addEventListener('load', fetchRandomPokemon);
+        async function fetchRandomPokemon() {
+            setCarregando();
+            try {
+                const randomId = Math.floor(Math.random() * 1025) + 1;
+                await fetchPokemon(randomId);
+            } catch (error) {
+                console.error("Erro ao buscar Pokémon aleatório:", error);
+                errorMessageElement.textContent = 'Vixe, num achei Pokémon aleatório não.';
+                reativarBotoes();
+            }
+        }
+
+        function carregarPikachu() {
+             fetchPokemon('pikachu'); 
+        }
+
+        // Event Listeners
+        searchButton.addEventListener('click', () => {
+            const query = searchInput.value.trim().toLowerCase();
+            if (query) fetchPokemon(query);
+        });
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const query = searchInput.value.trim().toLowerCase();
+                if (query) fetchPokemon(query);
+            }
+        });
+
+        randomButton.addEventListener('click', fetchRandomPokemon);
+
+        // Inicia a aplicação carregando o Pikachu
+        window.addEventListener('load', carregarPikachu);
     </script>
 </body>
 </html>
